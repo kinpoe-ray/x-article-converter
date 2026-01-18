@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" id="theme-color-meta" content="#0f172a">
+    <title>Markdown → X Articles 转换器</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #1d9bf0;
+            --primary-hover: #1a8cd8;
+            --bg-gradient: linear-gradient(180deg, #15202b 0%, #192734 50%, #15202b 100%);
+            --page-bg: #15202b;
+            --card-bg: rgba(21, 32, 43, 0.95);
+            --card-border: rgba(29, 155, 240, 0.2);
+            --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --text-primary: #e7e9ea;
+            --text-secondary: #8b98a5;
+            --text-muted: #6e767d;
+            --input-bg: #192734;
+            --input-border: #38444d;
+            --input-focus-border: #1d9bf0;
+            --btn-primary-bg: #1d9bf0;
+            --btn-secondary-bg: transparent;
+            --btn-secondary-border: #1d9bf0;
+            --toast-bg: #00ba7c;
+            --code-bg: #2f3336;
+            --code-color: #e7e9ea;
+        }
+
+        body.light {
+            --bg-gradient: linear-gradient(180deg, #ffffff 0%, #f7f9fa 50%, #ffffff 100%);
+            --page-bg: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-border: rgba(29, 155, 240, 0.15);
+            --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --text-primary: #0f1419;
+            --text-secondary: #536471;
+            --text-muted: #8b98a5;
+            --input-bg: #f7f9fa;
+            --input-border: #eff3f4;
+            --code-bg: #f7f9fa;
+            --code-color: #0f1419;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            min-height: 100dvh;
+            transition: background 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            position: relative;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .theme-toggle:hover {
+            background: var(--card-bg);
+        }
+
+        .author-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .author-link:hover {
+            color: var(--primary);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 24px 40px;
+            overflow-y: auto;
+        }
+
+        .hero-section {
+            text-align: center;
+            margin-bottom: 32px;
+            max-width: 600px;
+        }
+
+        .hero-title {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            width: 100%;
+            max-width: 1200px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .tabs {
+            display: none;
+            border-bottom: 1px solid var(--input-border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .editor {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        .panel-input {
+            border-right: 1px solid var(--input-border);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--input-border);
+            background: var(--card-bg);
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-primary {
+            background: var(--btn-primary-bg);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(29, 155, 240, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--btn-secondary-bg);
+            color: var(--primary);
+            border: 1.5px solid var(--btn-secondary-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(29, 155, 240, 0.1);
+        }
+
+        .btn-icon {
+            padding: 8px 12px;
+            background: transparent;
+            color: var(--text-muted);
+        }
+
+        .btn-icon:hover {
+            background: var(--input-border);
+            color: var(--text-primary);
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #markdown-input {
+            flex: 1;
+            width: 100%;
+            padding: 20px;
+            border: none;
+            resize: none;
+            font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-primary);
+            background: var(--input-bg);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        #markdown-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .preview-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0;
+        }
+
+        #preview {
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 18px;
+            line-height: 1.75;
+            color: var(--text-primary);
+            min-height: 100%;
+        }
+
+        /* X Articles Preview Styles */
+        #preview h2 {
+            font-size: 23px;
+            font-weight: 800;
+            margin-top: 32px;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        #preview h2:first-child {
+            margin-top: 0;
+        }
+
+        #preview h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        #preview p {
+            margin: 20px 0;
+            line-height: 1.75;
+        }
+
+        #preview strong {
+            font-weight: 700;
+        }
+
+        #preview em {
+            font-style: italic;
+        }
+
+        #preview a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        #preview a:hover {
+            text-decoration: underline;
+        }
+
+        #preview ul,
+        #preview ol {
+            padding-left: 24px;
+            margin: 20px 0;
+        }
+
+        #preview li {
+            margin: 8px 0;
+            line-height: 1.75;
+        }
+
+        #preview blockquote {
+            border-left: 3px solid var(--primary);
+            padding-left: 16px;
+            margin: 20px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        #preview blockquote p {
+            margin: 0;
+        }
+
+        #preview code {
+            background: var(--code-bg);
+            color: var(--code-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "SF Mono", Monaco, monospace;
+            font-size: 0.9em;
+        }
+
+        #preview pre {
+            background: var(--code-bg);
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        #preview pre code {
+            background: none;
+            padding: 0;
+        }
+
+        #preview hr {
+            border: none;
+            height: 1px;
+            background: var(--input-border);
+            margin: 32px 0;
+        }
+
+        .stats-panel {
+            display: flex;
+            gap: 16px;
+            padding: 12px 20px;
+            border-top: 1px solid var(--input-border);
+            background: var(--card-bg);
+            flex-shrink: 0;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .toast {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--toast-bg);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 14px;
+            box-shadow: 0 4px 20px rgba(0, 186, 124, 0.3);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .mobile-footer {
+            display: none;
+            text-align: center;
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+        }
+
+        .mobile-footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+
+            .logo {
+                font-size: 16px;
+            }
+
+            .author-link {
+                display: none;
+            }
+
+            .mobile-footer {
+                display: block;
+            }
+
+            .main-content {
+                padding: 0 16px 16px;
+            }
+
+            .hero-section {
+                margin-bottom: 20px;
+            }
+
+            .hero-title {
+                font-size: 24px;
+            }
+
+            .hero-subtitle {
+                font-size: 14px;
+            }
+
+            .card {
+                border-radius: 16px 16px 0 0;
+                flex: 1;
+            }
+
+            .tabs {
+                display: flex;
+            }
+
+            .editor {
+                grid-template-columns: 1fr;
+            }
+
+            .panel {
+                display: none;
+            }
+
+            .panel.active {
+                display: flex;
+            }
+
+            .panel-input {
+                border-right: none;
+            }
+
+            .panel-header {
+                padding: 12px 16px;
+            }
+
+            .panel-title {
+                font-size: 13px;
+            }
+
+            .btn {
+                padding: 10px 14px;
+                font-size: 13px;
+            }
+
+            #markdown-input {
+                padding: 16px;
+                font-size: 16px;
+            }
+
+            #preview {
+                padding: 16px;
+                padding-bottom: 100px;
+            }
+
+            .panel-preview {
+                overflow: hidden;
+            }
+
+            .panel-preview .preview-wrapper {
+                flex: 1;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                height: 100%;
+            }
+
+            .panel-preview .panel-header {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                border-top: 1px solid var(--input-border);
+                border-bottom: none;
+                border-radius: 0;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+                z-index: 100;
+            }
+
+            .panel-preview .panel-header .btn-group {
+                width: 100%;
+            }
+
+            .panel-preview .panel-header .btn {
+                flex: 1;
+            }
+
+            .panel-preview .panel-title {
+                display: none;
+            }
+
+            .toast {
+                bottom: calc(24px + env(safe-area-inset-bottom));
+                top: auto;
+            }
+
+            .stats-panel {
+                padding: 10px 16px;
+                gap: 12px;
+            }
+
+            .stat-label {
+                font-size: 11px;
+            }
+
+            .stat-value {
+                font-size: 14px;
+            }
+        }
+
+        @media (min-width: 1400px) {
+            .hero-title {
+                font-size: 42px;
+            }
+
+            .card {
+                max-width: 1400px;
+            }
+
+            .panel-header {
+                padding: 16px 24px;
+            }
+
+            #markdown-input,
+            #preview {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="logo">
+            <span class="logo-icon">𝕏</span>
+            <span>X Articles 转换器</span>
+        </div>
+        <div class="header-actions">
+            <a href="https://x.com/kinpoe_ray" target="_blank" class="author-link">@kinpoe_ray</a>
+            <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="切换主题">🌙</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <section class="hero-section">
+            <h1 class="hero-title">Markdown → X Articles</h1>
+            <p class="hero-subtitle">粘贴 Markdown 内容，一键转换为 X Articles 富文本格式，直接复制粘贴到编辑器</p>
+        </section>
+
+        <div class="card">
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-input" onclick="switchTab('input')">📝 输入</button>
+                <button class="tab-btn" id="tab-preview" onclick="switchTab('preview')">👁️ 预览</button>
+            </div>
+
+            <div class="editor">
+                <div class="panel panel-input active" id="panel-input">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>📄</span> Markdown 输入
+                        </span>
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" onclick="pasteFromClipboard()">📋 粘贴</button>
+                            <button class="btn btn-icon" onclick="clearInput()" title="清空">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea id="markdown-input" placeholder="在这里粘贴 Markdown 内容...
+
+支持的格式:
+## 标题 (H2)
+### 子标题 (H3)
+**加粗文本**
+*斜体文本*
+[链接](url)
+- 无序列表
+1. 有序列表
+> 引用块
+`代码`
+
+表格会自动转换为列表格式
+
+← 移动端左右滑动切换"></textarea>
+                    </div>
+                    <div class="stats-panel" id="stats-panel">
+                        <div class="stat-item">
+                            <span class="stat-label">字数</span>
+                            <span class="stat-value" id="word-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">阅读</span>
+                            <span class="stat-value" id="read-time">0分钟</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">段落</span>
+                            <span class="stat-value" id="paragraph-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel panel-preview" id="panel-preview">
+                    <div class="panel-header">
+                        <span class="panel-title">
+                            <span>👁️</span> 预览效果
+                        </span>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="copy-btn-header" onclick="copyToClipboard()">📋
+                                复制到 X Articles</button>
+                        </div>
+                    </div>
+                    <div class="preview-wrapper" id="preview-wrapper">
+                        <div id="preview">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">✨</div>
+                                <div class="empty-state-text">在左侧输入 Markdown 内容<br>这里会实时显示转换效果</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="mobile-footer">
+        <a href="https://x.com/kinpoe_ray" target="_blank">Made by @kinpoe_ray</a>
+    </footer>
+
+    <div class="toast" id="toast">✅ 已复制！粘贴到 X Articles 即可</div>
+
+    <script>
+        const input = document.getElementById('markdown-input');
+        const preview = document.getElementById('preview');
+        const toast = document.getElementById('toast');
+
+        const CONFIG = {
+            READ_SPEED: 400,
+            SWIPE_THRESHOLD: 80,
+            DELETE_CONFIRM_TIMEOUT: 2000,
+            TOAST_DURATION: 2500,
+        };
+
+        // Configure marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        // Convert tables to list format (X Articles doesn't support tables)
+        function convertTablesToLists(markdown) {
+            const lines = markdown.split('\n');
+            const result = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                const line = lines[i].trim();
+
+                if (line.startsWith('|') && line.endsWith('|')) {
+                    if (i + 1 < lines.length) {
+                        const nextLine = lines[i + 1].trim();
+                        if (/^\|[\s\-:]+\|/.test(nextLine)) {
+                            const headers = line.slice(1, -1).split('|').map(h => h.trim());
+                            i += 2;
+
+                            const tableRows = [];
+                            while (i < lines.length) {
+                                const rowLine = lines[i].trim();
+                                if (rowLine.startsWith('|') && rowLine.endsWith('|')) {
+                                    const cells = rowLine.slice(1, -1).split('|').map(c => c.trim());
+                                    tableRows.push(cells);
+                                    i++;
+                                } else {
+                                    break;
+                                }
+                            }
+
+                            result.push('');
+                            for (const row of tableRows) {
+                                const parts = [];
+                                for (let j = 0; j < row.length; j++) {
+                                    if (j < headers.length && row[j]) {
+                                        parts.push(`**${headers[j]}**: ${row[j]}`);
+                                    }
+                                }
+                                if (parts.length) {
+                                    result.push(`- ${parts.join(' · ')}`);
+                                }
+                            }
+                            result.push('');
+                            continue;
+                        }
+                    }
+                }
+
+                result.push(lines[i]);
+                i++;
+            }
+
+            return result.join('\n');
+        }
+
+        // Strip images from markdown (X Articles handles images separately)
+        function stripImages(markdown) {
+            return markdown.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+        }
+
+        // Real-time conversion
+        input.addEventListener('input', () => {
+            const markdown = input.value;
+            if (markdown.trim()) {
+                let processed = convertTablesToLists(markdown);
+                processed = stripImages(processed);
+                preview.innerHTML = marked.parse(processed);
+                updateStats();
+            } else {
+                preview.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✨</div>
+                        <div class="empty-state-text">在左侧输入 Markdown 内容<br>这里会实时显示转换效果</div>
+                    </div>
+                `;
+            }
+        });
+
+        function clearInput() {
+            input.value = '';
+            input.dispatchEvent(new Event('input'));
+        }
+
+        function updateStats() {
+            const text = input.value;
+            const wordCount = text.replace(/\s+/g, '').length;
+            const readTime = Math.ceil(wordCount / CONFIG.READ_SPEED);
+            const paragraphCount = text.split(/\n\s*\n/).filter(p => p.trim()).length;
+
+            document.getElementById('word-count').textContent = wordCount;
+            document.getElementById('read-time').textContent = `${readTime}分钟`;
+            document.getElementById('paragraph-count').textContent = paragraphCount;
+        }
+
+        // Generate X Articles compatible HTML
+        function getXArticlesHtml() {
+            let markdown = input.value;
+            markdown = convertTablesToLists(markdown);
+            markdown = stripImages(markdown);
+
+            let html = marked.parse(markdown);
+
+            // X Articles uses semantic HTML, keep it clean
+            // Remove any inline styles that marked might add
+            html = html.replace(/ style="[^"]*"/g, '');
+
+            return html;
+        }
+
+        // Copy to clipboard
+        async function copyToClipboard() {
+            if (!input.value.trim()) {
+                alert('请先输入 Markdown 内容');
+                return;
+            }
+            try {
+                const styledHtml = getXArticlesHtml();
+                const blob = new Blob([styledHtml], { type: 'text/html' });
+                const clipboardItem = new ClipboardItem({ 'text/html': blob });
+                await navigator.clipboard.write([clipboardItem]);
+                showToast();
+            } catch (err) {
+                const range = document.createRange();
+                range.selectNodeContents(preview);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                document.execCommand('copy');
+                selection.removeAllRanges();
+                showToast();
+            }
+        }
+
+        function showToast() {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, CONFIG.TOAST_DURATION);
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            const tabInput = document.getElementById('tab-input');
+            const tabPreview = document.getElementById('tab-preview');
+            const panelInput = document.getElementById('panel-input');
+            const panelPreview = document.getElementById('panel-preview');
+
+            if (tab === 'input') {
+                tabInput.classList.add('active');
+                tabPreview.classList.remove('active');
+                panelInput.classList.add('active');
+                panelPreview.classList.remove('active');
+            } else {
+                tabInput.classList.remove('active');
+                tabPreview.classList.add('active');
+                panelInput.classList.remove('active');
+                panelPreview.classList.add('active');
+            }
+        }
+
+        function handleResize() {
+            const isMobile = window.innerWidth <= 768;
+            const panelInput = document.getElementById('panel-input');
+            const panelPreview = document.getElementById('panel-preview');
+
+            if (!isMobile) {
+                panelInput.classList.add('active');
+                panelPreview.classList.add('active');
+            }
+        }
+
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        // Paste functionality
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    input.value = text;
+                    input.dispatchEvent(new Event('input'));
+                    toast.innerHTML = '✅ 内容已粘贴！';
+                    showToast();
+                    setTimeout(() => {
+                        toast.innerHTML = '✅ 已复制！粘贴到 X Articles 即可';
+                    }, 3000);
+                } else {
+                    input.focus();
+                    toast.innerHTML = '📋 请长按粘贴内容';
+                    showToast();
+                    setTimeout(() => {
+                        toast.innerHTML = '✅ 已复制！粘贴到 X Articles 即可';
+                    }, 3000);
+                }
+            } catch (error) {
+                input.focus();
+                toast.innerHTML = '📋 请长按粘贴内容';
+                showToast();
+                setTimeout(() => {
+                    toast.innerHTML = '✅ 已复制！粘贴到 X Articles 即可';
+                }, 3000);
+            }
+        }
+
+        // Swipe to switch tabs
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isSwiping = false;
+        let isHorizontalSwipe = null;
+
+        const editorEl = document.querySelector('.editor');
+        const panelInputEl = document.getElementById('panel-input');
+        const panelPreviewEl = document.getElementById('panel-preview');
+
+        editorEl.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].clientX;
+            touchStartY = e.changedTouches[0].clientY;
+            isSwiping = true;
+            isHorizontalSwipe = null;
+            panelInputEl.style.transition = 'none';
+            panelPreviewEl.style.transition = 'none';
+        }, { passive: true });
+
+        editorEl.addEventListener('touchmove', (e) => {
+            if (!isSwiping || window.innerWidth > 768) return;
+
+            const currentX = e.changedTouches[0].clientX;
+            const currentY = e.changedTouches[0].clientY;
+            const diffX = currentX - touchStartX;
+            const diffY = currentY - touchStartY;
+
+            if (isHorizontalSwipe === null) {
+                if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+                    isHorizontalSwipe = Math.abs(diffX) > Math.abs(diffY);
+                }
+            }
+
+            if (!isHorizontalSwipe) return;
+
+            const editorWidth = window.innerWidth;
+            const maxOffset = editorWidth * 0.4;
+            const offset = Math.max(-maxOffset, Math.min(maxOffset, diffX * 0.8));
+
+            if (diffX > 0 && panelPreviewEl.classList.contains('active')) {
+                panelPreviewEl.style.transform = `translateX(${offset}px)`;
+                panelPreviewEl.style.opacity = 1 - Math.abs(offset) / (maxOffset * 1.5);
+            } else if (diffX < 0 && panelInputEl.classList.contains('active')) {
+                panelInputEl.style.transform = `translateX(${offset}px)`;
+                panelInputEl.style.opacity = 1 - Math.abs(offset) / (maxOffset * 1.5);
+            }
+        }, { passive: true });
+
+        editorEl.addEventListener('touchend', (e) => {
+            if (!isSwiping) return;
+            isSwiping = false;
+
+            const endX = e.changedTouches[0].clientX;
+            const diff = endX - touchStartX;
+
+            panelInputEl.style.transition = '';
+            panelPreviewEl.style.transition = '';
+            panelInputEl.style.transform = '';
+            panelInputEl.style.opacity = '';
+            panelPreviewEl.style.transform = '';
+            panelPreviewEl.style.opacity = '';
+
+            if (isHorizontalSwipe && window.innerWidth <= 768 && Math.abs(diff) > CONFIG.SWIPE_THRESHOLD) {
+                if (diff > 0 && panelPreviewEl.classList.contains('active')) {
+                    switchTab('input');
+                } else if (diff < 0 && panelInputEl.classList.contains('active')) {
+                    switchTab('preview');
+                }
+            }
+        }, { passive: true });
+
+        // Theme toggle
+        function toggleTheme() {
+            const body = document.body;
+            const themeBtn = document.getElementById('theme-toggle');
+            const themeColorMeta = document.getElementById('theme-color-meta');
+
+            if (body.classList.contains('light')) {
+                body.classList.remove('light');
+                themeBtn.innerHTML = '🌙';
+                themeColorMeta.content = '#15202b';
+                localStorage.setItem('x-theme', 'dark');
+            } else {
+                body.classList.add('light');
+                themeBtn.innerHTML = '☀️';
+                themeColorMeta.content = '#ffffff';
+                localStorage.setItem('x-theme', 'light');
+            }
+        }
+
+        // Initialize theme
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('x-theme');
+            const themeBtn = document.getElementById('theme-toggle');
+            const themeColorMeta = document.getElementById('theme-color-meta');
+
+            if (savedTheme === 'light') {
+                document.body.classList.add('light');
+                themeBtn.innerHTML = '☀️';
+                themeColorMeta.content = '#ffffff';
+            }
+        })();
+
+        // Double-click to delete
+        let deleteClickCount = 0;
+        let deleteClickTimer = null;
+
+        function clearInput() {
+            deleteClickCount++;
+
+            if (deleteClickCount === 1) {
+                toast.innerHTML = '🗑️ 再点一次确认清空';
+                showToast();
+                deleteClickTimer = setTimeout(() => {
+                    deleteClickCount = 0;
+                }, CONFIG.DELETE_CONFIRM_TIMEOUT);
+            } else if (deleteClickCount >= 2) {
+                clearTimeout(deleteClickTimer);
+                deleteClickCount = 0;
+                input.value = '';
+                input.dispatchEvent(new Event('input'));
+                toast.innerHTML = '✅ 内容已清空';
+                showToast();
+                setTimeout(() => {
+                    toast.innerHTML = '✅ 已复制！粘贴到 X Articles 即可';
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+
+</html>
