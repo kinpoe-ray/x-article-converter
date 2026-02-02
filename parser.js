@@ -86,7 +86,7 @@ export function stripEmbeds(markdown) {
 
 export function replaceMermaidBlocks(markdown) {
   return markdown.replace(/```mermaid[\s\S]*?```/g, () => {
-    return "> ⚠️ Mermaid 图表无法在 X Articles 渲染，请在此处插入截图/图片。";
+    return "⚠️ Mermaid 图表无法在 X Articles 渲染，请在此处插入截图/图片。";
   });
 }
 
