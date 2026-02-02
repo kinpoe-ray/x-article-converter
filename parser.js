@@ -84,10 +84,17 @@ export function stripEmbeds(markdown) {
   return markdown.replace(/^https?:\/\/.+$/gm, (line) => `> 链接：${line}`);
 }
 
+export function replaceMermaidBlocks(markdown) {
+  return markdown.replace(/```mermaid[\s\S]*?```/g, () => {
+    return "> ⚠️ Mermaid 图表无法在 X Articles 渲染，请在此处插入截图/图片。";
+  });
+}
+
 export function getXArticlesHtml(markdown, marked) {
   let processed = normalizeNotionMarkdown(markdown);
   processed = convertTablesToLists(processed);
   processed = stripImages(processed);
+  processed = replaceMermaidBlocks(processed);
   processed = stripEmbeds(processed);
 
   let html = marked.parse(processed);
