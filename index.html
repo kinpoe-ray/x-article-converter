@@ -701,7 +701,7 @@
                     <div class="input-wrapper">
                         <textarea id="markdown-input" placeholder="在这里粘贴 Markdown 内容...
 
-支持的格式:
+Notion 常见格式支持:
 ## 标题 (H2)
 ### 子标题 (H3)
 **加粗文本**
@@ -713,6 +713,9 @@
 `代码`
 
 表格会自动转换为列表格式
+任务列表会转换为 ✅ / ☐
+折叠块会降级为小标题
+图片语法会自动剥离
 
 ← 移动端左右滑动切换"></textarea>
                     </div>
@@ -779,6 +782,28 @@
             gfm: true
         });
 
+        // Normalize Notion-flavored Markdown to a safe subset for X Articles
+        function normalizeNotionMarkdown(markdown) {
+            let text = markdown;
+
+            // Normalize bullet characters from Notion
+            text = text.replace(/^\s*•\s+/gm, '- ');
+            text = text.replace(/^\s*◦\s+/gm, '  - ');
+            text = text.replace(/^\s*▪\s+/gm, '  - ');
+
+            // Task lists
+            text = text.replace(/^\s*[-*]\s*\[x\]\s+/gim, '- ✅ ');
+            text = text.replace(/^\s*[-*]\s*\[\s\]\s+/gim, '- ☐ ');
+
+            // Toggle blocks (degrade to headings)
+            text = text.replace(/^\s*[-*]\s*[▸▶]\s+/gm, '### ');
+
+            // Callout blocks: keep as blockquote with emoji/title
+            // If Notion copied callouts become blockquotes with emoji, we keep them as-is
+
+            return text;
+        }
+
         // Convert tables to list format (X Articles doesn't support tables)
         function convertTablesToLists(markdown) {
             const lines = markdown.split('\n');
@@ -841,7 +866,8 @@
         input.addEventListener('input', () => {
             const markdown = input.value;
             if (markdown.trim()) {
-                let processed = convertTablesToLists(markdown);
+                let processed = normalizeNotionMarkdown(markdown);
+                processed = convertTablesToLists(processed);
                 processed = stripImages(processed);
                 preview.innerHTML = marked.parse(processed);
                 updateStats();
@@ -874,6 +900,7 @@
         // Generate X Articles compatible HTML
         function getXArticlesHtml() {
             let markdown = input.value;
+            markdown = normalizeNotionMarkdown(markdown);
             markdown = convertTablesToLists(markdown);
             markdown = stripImages(markdown);
 
